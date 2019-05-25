@@ -1,0 +1,39 @@
+# SBT
+**/target/
+.history
+.sbtopts
+
+# MacOS
+.DS_Store
+
+.gradle/
+build/
+out/
+.idea
+.idea_*
+.idea/*
+**/.idea/*
+**/.cache
+**/.classpath
+**/.project
+**/.settings/*
+**/bin
+**/logs/*
+**/.idea_modules/*
+output.log
+
+# IDEA UML file
+*.uml
+*.iml
+projectFilesBackup*
+
+# other
+**.log
+**.tar.gz
+**.tgz
+**.bz2
+**.diff
+**.pdf
+**.dump
+**.tar
+**.sc
