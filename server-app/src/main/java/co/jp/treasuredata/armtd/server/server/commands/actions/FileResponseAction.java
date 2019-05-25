@@ -2,16 +2,13 @@ package co.jp.treasuredata.armtd.server.server.commands.actions;
 
 import co.jp.treasuredata.armtd.api.protocol.Packet;
 import co.jp.treasuredata.armtd.api.protocol.Request;
-import co.jp.treasuredata.armtd.server.io.OutputChannel;
 import co.jp.treasuredata.armtd.server.io.ResponseAction;
-import com.sun.xml.internal.bind.v2.runtime.reflect.Lister;
 
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public class FileResponseAction implements ResponseAction {

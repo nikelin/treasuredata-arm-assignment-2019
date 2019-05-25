@@ -4,7 +4,6 @@ import co.jp.treasuredata.armtd.client.commands.CommandHandler;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 

@@ -52,7 +52,7 @@ public class NonBlockingServer implements Server {
         Selector selector = Selector.open();
 
         ServerSocketChannel serverChannel = ServerSocketChannel.open();
-        serverChannel.bind(new InetSocketAddress(host, port));
+        serverChannel.bind(host != null ? new InetSocketAddress(host, port) : new InetSocketAddress(port));
         serverChannel.configureBlocking(false);
 
         serverChannel.register(selector, serverChannel.validOps(), null);

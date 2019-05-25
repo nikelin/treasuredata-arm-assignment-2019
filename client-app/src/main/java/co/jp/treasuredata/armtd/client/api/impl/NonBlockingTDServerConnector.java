@@ -4,6 +4,7 @@ import co.jp.treasuredata.armtd.api.protocol.Packet;
 import co.jp.treasuredata.armtd.api.protocol.handler.PacketHandler;
 import co.jp.treasuredata.armtd.api.protocol.io.FramesBuilderRunnable;
 import co.jp.treasuredata.armtd.api.protocol.io.impl.StandardPacketsBuilder;
+import co.jp.treasuredata.armtd.client.ClientConfig;
 import co.jp.treasuredata.armtd.client.api.TDServerConnector;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -11,20 +12,16 @@ import org.apache.commons.lang3.tuple.Pair;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class AsyncTDServerConnector implements TDServerConnector {
+public class NonBlockingTDServerConnector implements TDServerConnector {
 
-    private final String hostname;
-    private final int port;
     private final ExecutorService executorService;
     private final PacketHandler packetHandler;
 
@@ -41,32 +38,30 @@ public class AsyncTDServerConnector implements TDServerConnector {
 
     private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
 
-    private final Duration writeTimeout = Duration.of(10, ChronoUnit.SECONDS);
-    private final Duration readTimeout = Duration.of(10, ChronoUnit.SECONDS);
+    private final ClientConfig config;
 
-    public AsyncTDServerConnector(PacketHandler handler, String hostname, int port) {
-        this(Executors.newCachedThreadPool(), handler, hostname, port);
+    public NonBlockingTDServerConnector(PacketHandler handler, ClientConfig config) {
+        this(Executors.newCachedThreadPool(), handler, config);
     }
 
-    public AsyncTDServerConnector(ExecutorService service, PacketHandler handler, String hostname, int port) {
+    public NonBlockingTDServerConnector(ExecutorService service, PacketHandler handler, ClientConfig config) {
         this.packetHandler = handler;
         this.executorService = service;
-        this.hostname = hostname;
-        this.port = port;
+        this.config = config;
     }
 
     private void socketConnect() throws IOException {
         this.socketChannel = SocketChannel.open();
-        this.socketChannel.configureBlocking(true);
-        this.socketChannel.connect(new InetSocketAddress(this.hostname, this.port));
-        this.socketChannel.finishConnect();
+        socketChannel.configureBlocking(false);
+        socketChannel.connect(config.getServerHost() != null ? new InetSocketAddress(config.getServerHost(), config.getServerPort())
+                : new InetSocketAddress(config.getServerPort()));
     }
 
     @Override
     public void connect() throws IOException, InterruptedException, ExecutionException {
         socketConnect();
 
-        this.isTerminated.compareAndSet(true, false);
+        this.isTerminated.set(false);
 
         this.executorService.execute(new PacketsHandlerRunnable());
         this.executorService.execute(new FramesBuilderRunnable(1, new StandardPacketsBuilder(Integer.MAX_VALUE),
@@ -79,6 +74,10 @@ public class AsyncTDServerConnector implements TDServerConnector {
     public void close() throws IOException {
         this.isTerminated.set(true);
         disconnect();
+        this.requestsDeque.clear();
+        this.readBuffers.clear();
+        this.packetsQueue.clear();
+        this.clientRequests.clear();
     }
 
     public void disconnect() throws IOException {
@@ -86,16 +85,16 @@ public class AsyncTDServerConnector implements TDServerConnector {
             return;
         }
 
-        if (!this.socketChannel.isOpen()) {
+        if (this.socketChannel.isOpen()) {
             this.socketChannel.close();
         }
     }
 
-    private synchronized void reconnect() {
+    private boolean reconnect() {
         System.out.println("[status] Reconnection");
-        if (!this.isReconnecting.get()) {
+        if (!this.isReconnecting.compareAndSet(false, true)) {
             System.out.println("[status] Reconnection request declined - reconnection is in progress already.");
-            return;
+            return false;
         }
 
         int attempts = 0;
@@ -107,11 +106,11 @@ public class AsyncTDServerConnector implements TDServerConnector {
                 }
 
                 try {
-                    this.disconnect();
-                } catch (Throwable ignored) { }
+                    this.close();
+                } catch (Throwable ignored) {}
 
                 try {
-                    this.socketConnect();
+                    this.connect();
                 } catch (Throwable e) {
                     System.out.println("[error] Reconnection attempt failed");
                     continue;
@@ -127,44 +126,65 @@ public class AsyncTDServerConnector implements TDServerConnector {
 
         this.isReconnecting.set(false);
 
+        return connected;
     }
 
     private void startResponsesHandler() {
         this.executorService.execute(() -> {
-            while (!this.isTerminated.get()) {
-                try {
-                    if (this.socketChannel == null) {
-                        this.reconnect();
-                    }
+            try {
+                Selector selector = Selector.open();
+                socketChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_CONNECT);
 
-                    ByteBuffer buffer = ByteBuffer.allocate(512);
-                    int bytesRead = -1;
-                    int attempts = 5;
-                    while (attempts > 0) {
-                        try {
-                            bytesRead = socketChannel.read(buffer);
-                            break;
-                        } catch (IOException e) {
-                            attempts -= 1;
+                while (!this.isTerminated.get()) {
+                    selector.select();
+
+                    Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                    Iterator<SelectionKey> iterator = selectedKeys.iterator();
+                    while (iterator.hasNext()) {
+                        SelectionKey selectedKey = iterator.next();
+
+                        iterator.remove();
+
+                        if (!selectedKey.isValid()) {
+                            continue;
+                        } else if (selectedKey.isConnectable()) {
+                            selectedKey.interestOps(SelectionKey.OP_READ);
+                            ((SocketChannel) selectedKey.channel()).finishConnect();
+                        } else if (selectedKey.isReadable()) {
+                            try {
+                                readChannel(selectedKey);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                continue;
+                            }
                         }
                     }
-
-                    if (bytesRead == -1) {
-                        break;
-                    } else {
-                        ByteBuffer inputBuffer = ByteBuffer.allocate(bytesRead);
-                        inputBuffer.put(buffer.array(), 0, bytesRead);
-                        inputBuffer.flip();
-
-                        readBuffers.add(Pair.of(null, inputBuffer));
-                    }
-
-                    buffer.clear();
-                } catch (Throwable e) {
-                    e.printStackTrace();;
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
+                this.isTerminated.set(true);
             }
         });
+    }
+
+    private void readChannel(SelectionKey key)  throws IOException  {
+        SocketChannel channel = (SocketChannel) key.channel();
+
+        ByteBuffer buffer = ByteBuffer.allocate(512);
+        int bytesRead = channel.read(buffer);
+        buffer.flip();
+
+        if (bytesRead <= 0) return;
+
+        ByteBuffer inputBuffer = ByteBuffer.allocate(bytesRead);
+        inputBuffer.put(buffer.array(), 0, bytesRead);
+        inputBuffer.flip();
+        buffer.clear();
+        readBuffers.add(Pair.of(channel, inputBuffer));
+
+        System.out.println("Buffer received - " + bytesRead);
+
+        buffer.clear();
     }
 
     private void startRequestsHandler() {
@@ -251,7 +271,7 @@ public class AsyncTDServerConnector implements TDServerConnector {
 
         @Override
         public void run() {
-            while (!AsyncTDServerConnector.this.isTerminated.get()) {
+            while (!NonBlockingTDServerConnector.this.isTerminated.get()) {
                 final Pair<SocketChannel, Packet> packet;
                 try {
                     packet = packetsQueue.poll(1, TimeUnit.SECONDS);

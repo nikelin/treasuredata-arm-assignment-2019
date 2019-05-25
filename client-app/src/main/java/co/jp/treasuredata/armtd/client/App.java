@@ -1,9 +1,8 @@
 package co.jp.treasuredata.armtd.client;
 
-import co.jp.treasuredata.armtd.api.protocol.handler.PacketHandler;
 import co.jp.treasuredata.armtd.api.protocol.handler.spi.PacketHandlerProvider;
 import co.jp.treasuredata.armtd.client.api.TDServerConnector;
-import co.jp.treasuredata.armtd.client.api.impl.AsyncTDServerConnector;
+import co.jp.treasuredata.armtd.client.api.impl.NonBlockingTDServerConnector;
 import co.jp.treasuredata.armtd.client.commands.CommandHandler;
 import co.jp.treasuredata.armtd.client.commands.CommandException;
 import co.jp.treasuredata.armtd.client.commands.loader.spi.CommandsLoaderProvider;
@@ -46,8 +45,7 @@ public final class App {
 
         final TDServerConnector connector;
         try {
-            connector = new AsyncTDServerConnector(packetHandlerIterator.next().provide(),
-                    config.getServerHost(), config.getServerPort());
+            connector = new NonBlockingTDServerConnector(packetHandlerIterator.next().provide(), config);
         } catch (Throwable e) {
             System.out.println("[ERROR] Failed to instantiate an instance of TD File Server connector.");
             e.printStackTrace();
@@ -100,7 +98,8 @@ public final class App {
 
             if (line.equals("qc")) {
                 try {
-                    context.getConnector().disconnect();
+                    context.getConnector().close();
+                    context.getConnector().connect();
                 } catch (Throwable e) {
                     context.out().println("[ERROR] Failed to close connection");
                 }

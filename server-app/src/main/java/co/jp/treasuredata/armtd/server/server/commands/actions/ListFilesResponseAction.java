@@ -2,14 +2,12 @@ package co.jp.treasuredata.armtd.server.server.commands.actions;
 
 import co.jp.treasuredata.armtd.api.protocol.Packet;
 import co.jp.treasuredata.armtd.api.protocol.Request;
-import co.jp.treasuredata.armtd.server.io.OutputChannel;
 import co.jp.treasuredata.armtd.server.io.ResponseAction;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public class ListFilesResponseAction implements ResponseAction {
