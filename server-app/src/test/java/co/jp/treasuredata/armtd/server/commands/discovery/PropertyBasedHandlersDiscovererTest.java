@@ -165,17 +165,17 @@ public class PropertyBasedHandlersDiscovererTest {
 
 
     private final static Properties correctDummyHandlerWithoutConfig = createProperties(
-            "route.className = PropertyBasedHandlersDiscovererTest$CorrectDummyHandlerWithoutConfig");
+            "route.className = co.jp.treasuredata.armtd.server.commands.discovery.PropertyBasedHandlersDiscovererTest$CorrectDummyHandlerWithoutConfig");
     private final static Properties correctDummyHandlerWithDefaultConstructor = createProperties(
-            "route.className = PropertyBasedHandlersDiscovererTest$CorrectDummyHandlerWithDefaultConstructor");
+            "route.className = co.jp.treasuredata.armtd.server.commands.discovery.PropertyBasedHandlersDiscovererTest$CorrectDummyHandlerWithDefaultConstructor");
     private final static Properties correctDummyHandler = createProperties(
-            "route.className = PropertyBasedHandlersDiscovererTest$CorrectDummyHandler");
+            "route.className = co.jp.treasuredata.armtd.server.commands.discovery.PropertyBasedHandlersDiscovererTest$CorrectDummyHandler");
     private final static Properties missingRequiredAnnotation = createProperties(
-            "route.className = PropertyBasedHandlersDiscovererTest$DummyHandlerWithNoAnnotation");
+            "route.className = co.jp.treasuredata.armtd.server.commands.discovery.PropertyBasedHandlersDiscovererTest$DummyHandlerWithNoAnnotation");
     private final static Properties isNotAnInstanceOfRouteHandler = createProperties(
-            "route.className = PropertyBasedHandlersDiscovererTest$DummyHandlerWithNoRouteHandler");
+            "route.className = co.jp.treasuredata.armtd.server.commands.discovery.PropertyBasedHandlersDiscovererTest$DummyHandlerWithNoRouteHandler");
     private final static Properties missingCompatibleConstructor = createProperties(
-            "route.className = PropertyBasedHandlersDiscovererTest$DummyHandlerWithNoCompatibleConstructor");
+            "route.className = co.jp.treasuredata.armtd.server.commands.discovery.PropertyBasedHandlersDiscovererTest$DummyHandlerWithNoCompatibleConstructor");
     private final static Properties missingClassNameConfig = createProperties("route.className = x.y.Z");
     private final static Properties onlyIrrelevantLinesConfig = createProperties("x.x = ss\n\r" + "y.x = ss\n\r");
 
