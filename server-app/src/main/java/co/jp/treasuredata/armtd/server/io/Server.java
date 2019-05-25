@@ -4,7 +4,7 @@ import java.io.IOException;
 
 public interface Server {
 
-    void start(int port) throws IOException, InterruptedException;
+    void start(String host, int port) throws IOException, InterruptedException;
 
     void stop() throws InterruptedException;
 

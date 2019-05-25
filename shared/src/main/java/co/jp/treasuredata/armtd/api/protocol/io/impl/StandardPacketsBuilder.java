@@ -28,8 +28,8 @@ public class StandardPacketsBuilder implements PacketsBuilder {
     private int readLength(ByteBuffer input) {
         try {
             int length = input.getInt();
-            if (length > maxInputFrameSize) {
-                return -1;
+            if (length > maxInputFrameSize || length == 0) {
+                return 0;
             }
             totalBytesRead += Integer.BYTES;
             lengthDataReceived = 0;

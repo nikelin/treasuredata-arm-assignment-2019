@@ -47,11 +47,11 @@ public class NonBlockingServer implements Server {
     }
 
     @Override
-    public void start(int port) throws IOException {
+    public void start(String host, int port) throws IOException {
         Selector selector = Selector.open();
 
         ServerSocketChannel serverChannel = ServerSocketChannel.open();
-        serverChannel.bind(new InetSocketAddress(port));
+        serverChannel.bind(new InetSocketAddress(host, port));
         serverChannel.configureBlocking(false);
 
         serverChannel.register(selector, serverChannel.validOps(), null);

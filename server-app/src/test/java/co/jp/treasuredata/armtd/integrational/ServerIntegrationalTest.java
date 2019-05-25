@@ -37,7 +37,7 @@ public class ServerIntegrationalTest {
         NonBlockingServer server = new NonBlockingServer(new DummyRouteHandler(checkPayload, latch), packetHandler);
         service.execute(() -> {
             try {
-                server.start(serverPort);
+                server.start("0.0.0.0", serverPort);
             } catch (Throwable e) {}
         });
 
@@ -83,7 +83,7 @@ public class ServerIntegrationalTest {
         NonBlockingServer server = new NonBlockingServer(new DummyRouteHandler(checkPayload, latch), packetHandler);
         service.execute(() -> {
             try {
-                server.start(serverPort);
+                server.start("0.0.0.0", serverPort);
             } catch (Throwable e) {}
         });
 

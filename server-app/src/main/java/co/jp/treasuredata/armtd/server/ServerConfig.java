@@ -6,8 +6,15 @@ public final class ServerConfig {
     @Option(name = "-d", aliases = "--directory", usage = "Input directory path", required = true)
     private String inputDirectoryPath;
 
-    @Option(name = "-p", aliases = "--port", usage = "NIO2Server port", required = false)
+    @Option(name = "-h", aliases = "--host", usage = "Server port", required = false)
+    private String host;
+
+    @Option(name = "-p", aliases = "--port", usage = "Server host", required = false)
     private Integer port;
+
+    public String getHost() {
+        return host;
+    }
 
     public String getInputDirectoryPath() {
         return inputDirectoryPath;

@@ -25,4 +25,4 @@ dependencies {
     testImplementation 'junit:junit:4.12'
 }
 
-mainClassName = 'co.jp.treasuredata.armtd.App'
+mainClassName = 'co.jp.treasuredata.armtd.server.App'

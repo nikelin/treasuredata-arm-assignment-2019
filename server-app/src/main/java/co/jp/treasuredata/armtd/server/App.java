@@ -86,7 +86,7 @@ public class App {
 
         Thread serverThread = new Thread(() -> {
             try {
-                server.start(serverConfig.getPort());
+                server.start(serverConfig.getHost(), serverConfig.getPort());
             } catch (IOException e) {
                 logger.error("ERROR: Failed to start server on port " + serverConfig.getPort(), e);
             } catch (InterruptedException e) {
