@@ -4,6 +4,7 @@ import co.jp.treasuredata.armtd.api.protocol.Packet;
 import co.jp.treasuredata.armtd.api.protocol.Request;
 import co.jp.treasuredata.armtd.server.io.OutputChannel;
 import co.jp.treasuredata.armtd.server.io.ResponseAction;
+import com.sun.xml.internal.bind.v2.runtime.reflect.Lister;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -23,23 +24,27 @@ public class FileResponseAction implements ResponseAction {
 
     @Override
     public CompletableFuture<List<Packet>> execute(Request request) {
-        return CompletableFuture
-            .supplyAsync(() -> {
-                try {
-                    RandomAccessFile accessFile = new RandomAccessFile(file, "r");
-                    FileChannel inChannel = accessFile.getChannel();
-                    long fileSize = inChannel.size();
-                    ByteBuffer buffer = ByteBuffer.allocate((int) fileSize);
-                    inChannel.read(buffer);
-                    buffer.flip();
-                    inChannel.close();
-                    accessFile.close();
+        CompletableFuture<List<Packet>> future = new CompletableFuture<>();
 
-                    return new Packet(request.getToken(), buffer.array());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            })
-            .thenApply(Collections::singletonList);
+        try {
+            RandomAccessFile accessFile = new RandomAccessFile(file, "r");
+            if (!file.exists()) {
+                future.completeExceptionally(new IOException("file.not.exists"));
+            } else {
+                FileChannel inChannel = accessFile.getChannel();
+                long fileSize = inChannel.size();
+                ByteBuffer buffer = ByteBuffer.allocate((int) fileSize);
+                inChannel.read(buffer);
+                buffer.flip();
+                inChannel.close();
+                accessFile.close();
+
+                future.complete(Collections.singletonList(new Packet(request.getToken(), buffer.array())));
+            }
+        } catch (IOException e) {
+            future.completeExceptionally(new RuntimeException(e));
+        }
+
+        return future;
     }
 }

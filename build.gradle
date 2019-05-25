@@ -6,7 +6,9 @@ allprojects {
 
 subprojects {
     version = '1.0'
+
     apply plugin: 'java'
+
     group = 'org.gradle.sample'
     version = '1.0'
 

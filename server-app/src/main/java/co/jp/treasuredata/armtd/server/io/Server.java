@@ -8,6 +8,8 @@ public interface Server {
 
     void stop() throws InterruptedException;
 
+    void awaitStart() throws InterruptedException;
+
     void awaitTermination() throws InterruptedException;
 
 }

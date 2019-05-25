@@ -32,12 +32,10 @@ public class TextResponseAction implements ResponseAction {
 
     @Override
     public CompletableFuture<List<Packet>> execute(Request request) {
-        return CompletableFuture
-            .supplyAsync(() -> {
-                String newLine = (this.addNewline ? "\n\r" : "");
-                String textResponse = newLine + message + newLine;
-                return new Packet(request.getToken(), textResponse.getBytes());
-            })
-            .thenApply(Collections::singletonList);
+        String newLine = (this.addNewline ? "\n\r" : "");
+        String textResponse = newLine + message + newLine;
+        CompletableFuture<List<Packet>> future = new CompletableFuture<>();
+        future.complete(Collections.singletonList(new Packet(request.getToken(), textResponse.getBytes())));
+        return future;
     }
 }

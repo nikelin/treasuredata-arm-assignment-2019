@@ -12,6 +12,14 @@ public final class ServerConfig {
     @Option(name = "-p", aliases = "--port", usage = "Server host", required = false)
     private Integer port;
 
+    public ServerConfig() {}
+
+    public ServerConfig(String inputDirectoryPath, String host, Integer port) {
+        this.inputDirectoryPath = inputDirectoryPath;
+        this.host = host;
+        this.port = port;
+    }
+
     public String getHost() {
         return host;
     }

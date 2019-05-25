@@ -30,6 +30,7 @@ public class NonBlockingServer implements Server {
 
     private final AtomicBoolean isTerminated = new AtomicBoolean();
     private final Object terminated = new Object();
+    private final Object started = new Object();
 
     private final RouteHandler routeHandler;
     private final PacketHandler packetHandler;
@@ -55,6 +56,10 @@ public class NonBlockingServer implements Server {
         serverChannel.configureBlocking(false);
 
         serverChannel.register(selector, serverChannel.validOps(), null);
+
+        synchronized (this.started) {
+            this.started.notifyAll();
+        }
 
         for (int builderIdx = 0; builderIdx < 3; builderIdx++) {
             service.execute(new FramesBuilderRunnable(builderIdx, new StandardPacketsBuilder(2048),
@@ -130,10 +135,17 @@ public class NonBlockingServer implements Server {
     }
 
     @Override
-    public void stop() throws InterruptedException {
+    public void stop() {
         this.isTerminated.set(true);
         synchronized (this.terminated) {
             this.terminated.notifyAll();
+        }
+    }
+
+    @Override
+    public void awaitStart() throws InterruptedException {
+        synchronized (this.started) {
+            this.started.wait();
         }
     }
 
