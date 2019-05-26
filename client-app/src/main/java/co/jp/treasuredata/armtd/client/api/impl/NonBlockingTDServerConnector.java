@@ -156,14 +156,13 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
                             try {
                                 readChannel(selectedKey);
                             } catch (IOException e) {
-                                e.printStackTrace();
-                                continue;
+                                e.printStackTrace(consoleOut);
                             }
                         }
                     }
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                e.printStackTrace(consoleOut);
                 this.isTerminated.set(true);
             }
         });
