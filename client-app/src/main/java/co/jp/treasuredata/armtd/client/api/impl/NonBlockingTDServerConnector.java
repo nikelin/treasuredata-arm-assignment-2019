@@ -10,6 +10,7 @@ import co.jp.treasuredata.armtd.client.api.TDServerConnector;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -40,14 +41,17 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
 
     private final ClientConfig config;
 
-    public NonBlockingTDServerConnector(PacketHandler handler, ClientConfig config) {
-        this(Executors.newCachedThreadPool(), handler, config);
+    private final PrintStream consoleOut;
+
+    public NonBlockingTDServerConnector(PrintStream consoleOut, PacketHandler handler, ClientConfig config) {
+        this(consoleOut, Executors.newCachedThreadPool(), handler, config);
     }
 
-    public NonBlockingTDServerConnector(ExecutorService service, PacketHandler handler, ClientConfig config) {
+    public NonBlockingTDServerConnector(PrintStream consoleOut, ExecutorService service, PacketHandler handler, ClientConfig config) {
         this.packetHandler = handler;
         this.executorService = service;
         this.config = config;
+        this.consoleOut = consoleOut;
     }
 
     private void socketConnect() throws IOException {
@@ -71,7 +75,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
     }
 
     @Override
-    public void close() throws IOException {
+    public synchronized void close() throws IOException {
         this.isTerminated.set(true);
         disconnect();
         this.requestsDeque.clear();
@@ -80,7 +84,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         this.clientRequests.clear();
     }
 
-    public void disconnect() throws IOException {
+    public synchronized void disconnect() throws IOException {
         if (this.socketChannel == null) {
             return;
         }
@@ -90,11 +94,11 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         }
     }
 
-    private boolean reconnect() {
-        System.out.println("[status] Reconnection");
+    private synchronized void reconnect() {
+        consoleOut.println("[status] Reconnection");
         if (!this.isReconnecting.compareAndSet(false, true)) {
-            System.out.println("[status] Reconnection request declined - reconnection is in progress already.");
-            return false;
+            consoleOut.println("[status] Reconnection request declined - reconnection is in progress already.");
+            return;
         }
 
         int attempts = 0;
@@ -102,7 +106,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         while (!connected && this.isReconnecting.get() && attempts < 5) {
             try {
                 if (attempts > 1) {
-                    System.out.println("[status] Reconnection attempt " + attempts);
+                    consoleOut.println("[status] Reconnection attempt " + attempts);
                 }
 
                 try {
@@ -112,11 +116,11 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
                 try {
                     this.connect();
                 } catch (Throwable e) {
-                    System.out.println("[error] Reconnection attempt failed");
+                    consoleOut.println("[error] Reconnection attempt failed");
                     continue;
                 }
 
-                System.out.println("[status] Reconnected to the TD File Server");
+                consoleOut.println("[status] Reconnected to the TD File Server");
 
                 connected = true;
             } finally {
@@ -125,8 +129,6 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         }
 
         this.isReconnecting.set(false);
-
-        return connected;
     }
 
     private void startResponsesHandler() {
@@ -182,7 +184,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         buffer.clear();
         readBuffers.add(Pair.of(channel, inputBuffer));
 
-        System.out.println("Buffer received - " + bytesRead);
+        consoleOut.println("Buffer received - " + bytesRead);
 
         buffer.clear();
     }
@@ -227,7 +229,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
                 commandBuffer.clear();
             }
 
-            System.out.println("[status] Disconnected");
+            consoleOut.println("[status] Disconnected");
 
             this.reconnect();
         });
@@ -249,7 +251,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
                     Arrays.asList(new String(data.data).trim().split("\n\r"))
                 )
                 .thenApply((list) -> {
-                    System.out.println("[done] finished in " + (System.currentTimeMillis() - startedAt) + "ms");
+                    consoleOut.println("[done] finished in " + (System.currentTimeMillis() - startedAt) + "ms");
                     return list;
                 })
             );

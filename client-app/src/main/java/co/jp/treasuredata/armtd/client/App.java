@@ -38,16 +38,16 @@ public final class App {
 
         Iterator<PacketHandlerProvider> packetHandlerIterator = ServiceLoader.load(PacketHandlerProvider.class).iterator();
         if (!packetHandlerIterator.hasNext()) {
-            System.out.println("[ERROR] No packet loaders provided!");
+            System.err.println("[ERROR] No packet loaders provided!");
             exit(-1);
             return;
         }
 
         final TDServerConnector connector;
         try {
-            connector = new NonBlockingTDServerConnector(packetHandlerIterator.next().provide(), config);
+            connector = new NonBlockingTDServerConnector(System.out, packetHandlerIterator.next().provide(), config);
         } catch (Throwable e) {
-            System.out.println("[ERROR] Failed to instantiate an instance of TD File Server connector.");
+            System.err.println("[ERROR] Failed to instantiate an instance of TD File Server connector.");
             e.printStackTrace();
             exit(-1);
             return;
@@ -56,14 +56,14 @@ public final class App {
         try {
             connector.connect();
         } catch (Throwable e) {
-            System.out.println("[ERROR] Failed to establish connection to the TD File Server endpoint.");
+            System.err.println("[ERROR] Failed to establish connection to the TD File Server endpoint.");
             exit(-1);
             return;
         }
 
         Iterator<CommandsLoaderProvider> providedLoaders = ServiceLoader.load(CommandsLoaderProvider.class).iterator();
         if (!providedLoaders.hasNext()) {
-            System.out.println("[ERROR] No command loaders provided!");
+            System.err.println("[ERROR] No command loaders provided!");
             exit(-1);
             return;
         }
@@ -71,8 +71,7 @@ public final class App {
         try {
             handleInput(new ExecutionContext(config, connector, in, System.out), providedLoaders.next().provide().load());
         } catch (IOException e) {
-            e.printStackTrace();
-            System.err.println("I/O operation failed");
+            System.err.println("I/O operation failed: " + e.getMessage());
             exit(-1);
             return;
         }
@@ -121,7 +120,6 @@ public final class App {
                 context.out().println("Command execution has started");
                 command.get().execute(context);
             } catch (CommandException e) {
-                e.printStackTrace(context.out());
                 context.out().println("[ERROR] CommandHandler execution failed: " + e.getMessage());
             }
         }
