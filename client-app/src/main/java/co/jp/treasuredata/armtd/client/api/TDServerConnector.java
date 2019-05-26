@@ -13,6 +13,8 @@ public interface TDServerConnector {
 
     CompletableFuture<Void> quit();
 
+    boolean isConnected();
+
     void connect() throws IOException, InterruptedException, ExecutionException;
 
     void disconnect() throws IOException, InterruptedException;

@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class NonBlockingTDServerConnector implements TDServerConnector {
+    private final static int DEFAULT_MAX_RETRY_ATTEMPTS = 10;
 
     private final ExecutorService executorService;
     private final PacketHandler packetHandler;
@@ -62,16 +63,57 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
     }
 
     @Override
+    public boolean isConnected() {
+        return !this.isTerminated.get();
+    }
+
+    @Override
     public void connect() throws IOException, InterruptedException, ExecutionException {
-        socketConnect();
+        consoleOut.println("[status] Connection");
+        if (!this.isReconnecting.compareAndSet(false, true)) {
+            consoleOut.println("[status] Connection request declined - there is another connection request in progress already.");
+            return;
+        }
 
-        this.isTerminated.set(false);
+        int attempts = 0;
+        int maxAttempts = config.getMaxReconnectAttempts() == null ? DEFAULT_MAX_RETRY_ATTEMPTS : config.getMaxReconnectAttempts();
+        boolean connected = false;
+        while (!connected && this.isReconnecting.get() && attempts < maxAttempts) {
+            try {
+                if (attempts > 1) {
+                    consoleOut.println("[status] Connection attempt " + attempts);
+                }
 
-        this.executorService.execute(new PacketsHandlerRunnable());
-        this.executorService.execute(new FramesBuilderRunnable(1, new StandardPacketsBuilder(Integer.MAX_VALUE),
-                readBuffers, packetsQueue, isTerminated));
-        startRequestsHandler();
-        startResponsesHandler();
+                try {
+                    this.close();
+                } catch (Throwable ignored) {}
+
+                try {
+                    socketConnect();
+                    this.isTerminated.set(false);
+                    startEventsLoop();
+                } catch (Throwable e) {
+                    e.printStackTrace();;
+                    consoleOut.println("[error] Connection attempt failed");
+                    try {
+                        Thread.sleep(attempts * 1000);
+                    } catch (Throwable ignored) {}
+                    continue;
+                }
+
+                consoleOut.println("[status] Connected to the TD File Server");
+
+                connected = true;
+            } finally {
+                attempts += 1;
+            }
+        }
+
+        this.isReconnecting.set(false);
+
+        if (!connected) {
+            this.isTerminated.set(true);
+        }
     }
 
     @Override
@@ -94,44 +136,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         }
     }
 
-    private synchronized void reconnect() {
-        consoleOut.println("[status] Reconnection");
-        if (!this.isReconnecting.compareAndSet(false, true)) {
-            consoleOut.println("[status] Reconnection request declined - reconnection is in progress already.");
-            return;
-        }
-
-        int attempts = 0;
-        boolean connected = false;
-        while (!connected && this.isReconnecting.get() && attempts < 5) {
-            try {
-                if (attempts > 1) {
-                    consoleOut.println("[status] Reconnection attempt " + attempts);
-                }
-
-                try {
-                    this.close();
-                } catch (Throwable ignored) {}
-
-                try {
-                    this.connect();
-                } catch (Throwable e) {
-                    consoleOut.println("[error] Reconnection attempt failed");
-                    continue;
-                }
-
-                consoleOut.println("[status] Reconnected to the TD File Server");
-
-                connected = true;
-            } finally {
-                attempts += 1;
-            }
-        }
-
-        this.isReconnecting.set(false);
-    }
-
-    private void startResponsesHandler() {
+    private void startEventsLoop() {
         this.executorService.execute(() -> {
             try {
                 Selector selector = Selector.open();
@@ -148,13 +153,21 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
                         iterator.remove();
 
                         if (!selectedKey.isValid()) {
-                            continue;
+                            System.out.println("Key is no longer valid");
                         } else if (selectedKey.isConnectable()) {
                             selectedKey.interestOps(SelectionKey.OP_READ);
+                            this.executorService.execute(new PacketsHandlerRunnable());
+                            this.executorService.execute(new FramesBuilderRunnable(1, new StandardPacketsBuilder(Integer.MAX_VALUE),
+                                    readBuffers, packetsQueue, isTerminated));
+                            startRequestsHandler();
                             ((SocketChannel) selectedKey.channel()).finishConnect();
                         } else if (selectedKey.isReadable()) {
                             try {
-                                readChannel(selectedKey);
+                                int bytesRead = readChannel(selectedKey);
+                                if (bytesRead == -1) {
+                                    selectedKey.cancel();
+                                    close();
+                                }
                             } catch (IOException e) {
                                 e.printStackTrace(consoleOut);
                             }
@@ -168,14 +181,14 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         });
     }
 
-    private void readChannel(SelectionKey key)  throws IOException  {
+    private int readChannel(SelectionKey key)  throws IOException  {
         SocketChannel channel = (SocketChannel) key.channel();
 
         ByteBuffer buffer = ByteBuffer.allocate(512);
         int bytesRead = channel.read(buffer);
         buffer.flip();
 
-        if (bytesRead <= 0) return;
+        if (bytesRead <= 0) return bytesRead;
 
         ByteBuffer inputBuffer = ByteBuffer.allocate(bytesRead);
         inputBuffer.put(buffer.array(), 0, bytesRead);
@@ -186,14 +199,15 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         consoleOut.println("Buffer received - " + bytesRead);
 
         buffer.clear();
+
+        return bytesRead;
     }
 
     private void startRequestsHandler() {
         this.executorService.execute(() -> {
-            boolean stopped = false;
-            while (!stopped && !this.isTerminated.get()) {
+            while (!this.isTerminated.get()) {
                 if (this.socketChannel == null) {
-                    this.reconnect();
+                    break;
                 }
 
                 final ClientRequest clientRequest;
@@ -205,32 +219,25 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
 
                 if (clientRequest == null) continue;
 
-                int attempts = clientRequest.command.isIdempotent() ? 5 : 1;
                 ByteBuffer commandBuffer = ByteBuffer.allocate(clientRequest.command.byteSize());
                 packetHandler.serialise(commandBuffer, clientRequest.command);
 
-                while (attempts > 0) {
-                    commandBuffer.flip();
-                    try {
-                        requestsDeque.add(clientRequest);
-                        while(commandBuffer.hasRemaining()) {
-                            socketChannel.write(commandBuffer);
-                        }
+                commandBuffer.flip();
 
-                        break;
-                    } catch (Throwable e) {
-                        reconnect();
-                        attempts -= 1;
-                        stopped = true;
+                requestsDeque.add(clientRequest);
+
+                try {
+                    while (commandBuffer.hasRemaining()) {
+                        socketChannel.write(commandBuffer);
                     }
+                } catch (IOException e) {
+                    continue;
                 }
 
                 commandBuffer.clear();
             }
 
             consoleOut.println("[status] Disconnected");
-
-            this.reconnect();
         });
     }
 

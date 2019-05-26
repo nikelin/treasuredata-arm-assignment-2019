@@ -53,14 +53,6 @@ public final class App {
             return;
         }
 
-        try {
-            connector.connect();
-        } catch (Throwable e) {
-            System.err.println("[ERROR] Failed to establish connection to the TD File Server endpoint.");
-            exit(-1);
-            return;
-        }
-
         Iterator<CommandsLoaderProvider> providedLoaders = ServiceLoader.load(CommandsLoaderProvider.class).iterator();
         if (!providedLoaders.hasNext()) {
             System.err.println("[ERROR] No command loaders provided!");
@@ -82,6 +74,14 @@ public final class App {
     private static void handleInput(ExecutionContext context, List<CommandHandler> commandHandlers) throws IOException {
         boolean isStopped = false;
         while(!isStopped) {
+            if (!context.getConnector().isConnected()) {
+                try {
+                    context.getConnector().connect();
+                } catch (Throwable e) {
+                    context.out().println("Unable to establish connection to the TD Server: " + e.getMessage());
+                }
+            }
+
             context.out().println("== Pick one of the available command handlers:");
             for (CommandHandler handler : commandHandlers) {
                 context.out().println("* type '" + handler.getKey() + "' to execute [" + handler.toString() + "]");
