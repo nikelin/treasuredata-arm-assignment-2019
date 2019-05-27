@@ -43,7 +43,8 @@ $pathToClientDist/bin/client-app -p 18078
   
 ## Commands available  
   
-In total, there are three commands implemented by the TD Server endpoint:  
+In total, there are three commands implemented by the TD Server endpoint:
+
 * **get {filename}** - fetches the requested file and prints it out to the console  
 * **index** - fetches and then prints to the console the list of all files in the root directory provided as a parameter on the server startup  
 * **stop** - stops the whole instance of the TD Server
@@ -51,6 +52,7 @@ In total, there are three commands implemented by the TD Server endpoint:
 ## Protocol Specifics
 
 Communication between the client and the server applications is done via TCP/IP connection using the custom protocol where each message has three fields:
+
 * **int:token** (4 bytes) - optional user data which can be used in a routing logic implementation
 * **int:length** (4 bytes) - sets the length of the body field
 * **bytearray:body** (variable) - packet body
