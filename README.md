@@ -66,11 +66,11 @@ At this point, the resolution strategy is hardcoded and cannot be overridden in 
 It doesn't prevent user from adding a new handlers, though. The default handlers list is as below:
 ```
 # Routes List  
-  
-route.get-route-handler.class-name = co.jp.treasuredata.armtd.server.server.commands.impl.GetRouteHandler  
-route.quit-route-handler = co.jp.treasuredata.armtd.server.server.commands.impl.QuitCommandHandler  
-route.index-route-handler = co.jp.treasuredata.armtd.server.server.commands.impl.IndexRouteHandler  
-route.disconnect-route-handler = co.jp.treasuredata.armtd.server.server.commands.impl.DisconnectRouteHandler
+
+route.get-route-handler.class-name = co.jp.treasuredata.armtd.server.server.commands.impl.GetRouteHandler
+route.quit-route-handler.class-name = co.jp.treasuredata.armtd.server.server.commands.impl.QuitCommandHandler
+route.index-route-handler.class-name = co.jp.treasuredata.armtd.server.server.commands.impl.IndexRouteHandler
+route.disconnect-route-handler.class-name = co.jp.treasuredata.armtd.server.server.commands.impl.DisconnectRouteHandler
 ```
 
 It is possible for a route to return zero or more response actions and each response action, when executed, can produce zero or more response packets (see above **Protocol Specifics**). 
