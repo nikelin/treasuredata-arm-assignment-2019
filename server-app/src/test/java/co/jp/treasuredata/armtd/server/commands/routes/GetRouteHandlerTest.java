@@ -46,6 +46,7 @@ public class GetRouteHandlerTest {
 
         File temporaryDirectoryFile = new File(temporaryDirectory, "test-file.pdf");
         temporaryDirectoryFile.createNewFile();
+        temporaryDirectoryFile.deleteOnExit();
 
         ServerConfig config = new ServerConfig(temporaryDirectory.getAbsolutePath(), null, null);
         GetRouteHandler handler = new GetRouteHandler(config);

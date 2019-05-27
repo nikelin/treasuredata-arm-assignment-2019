@@ -11,7 +11,6 @@ import co.jp.treasuredata.armtd.server.server.commands.RouteHandler;
 import co.jp.treasuredata.armtd.server.server.commands.actions.TextResponseAction;
 import co.jp.treasuredata.armtd.server.server.commands.impl.GetRouteHandler;
 import co.jp.treasuredata.armtd.utils.SocketUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 
 import java.io.*;
