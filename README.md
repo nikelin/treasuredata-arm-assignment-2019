@@ -1,9 +1,9 @@
+
 ## Overview
 
 Project consists of a three submodules - library, client and server application.
 
-It uses some third-party dependencies in order to implement some basic features not related to the core application functionality
-like CLI arguments parsing, logging handling and functional data structures implementations:
+It uses some third-party dependencies in order to implement some basic features not related to the core application functionality like CLI arguments parsing, logging handling and functional data structures implementations:
 
 * Apache Commons Lang v3.9
 * args4j v2.33
@@ -58,6 +58,9 @@ Then, when the server is up and running you can start the **client-app**:
 $pathToClientDist/bin/client-app -p 18078
 ```
 
+**Note:** The client application can be started even without a running or an accessible server application, in which case it will  fail all commands requested by the end user.  An attempt to establish connection with the server endpoint will be made each on each command execution
+request.
+
 ## Commands available
 
 In total, there are three commands implemented by the TD Server endpoint:
@@ -79,22 +82,22 @@ Selector subscribes to the server and the client socket events and processes the
 There are also three more additional threads which the server component requires to function properly:
 
 * **FramesBuilderRunnable**
-	* This worker is responsible for forming a data frames based on the all input data received from the client connections
-	* Number of workers of this type at this point is hard coded and is set to **3** parallel workers, but can be configured in future
-	* Keeps an internal state of the in-flight data frames
-		* **Important**: In a case of a server implementation there might be a risk of a memory leak caused by this, so a feedback mechanism has to be implemented to notify this worker about expired connections
-	* Used by both the client and the server application
-	* Uses `readBuffers` as a source of work
+   * This worker is responsible for forming a data frames based on the all input data received from the client connections
+   * Number of workers of this type at this point is hard coded and is set to **3** parallel workers, but can be configured in future
+   * Keeps an internal state of the in-flight data frames
+      * **Important**: In a case of a server implementation there might be a risk of a memory leak caused by this, so a feedback mechanism has to be implemented to notify this worker about expired connections
+   * Used by both the client and the server application
+   * Uses `readBuffers` as a source of work
 
 * **PacketsProcessorRunnable**
-	* This worker is responsible for processing user requests against the defined set of  route handlers, the resulting packets list is placed into the queue to be processed by the other worker
-	* Number of workers of this type at this point is hard coded and is set to **3** parallel workers, but can be configured in future
-	* Uses `inPacketsQueue` as a source of work
+   * This worker is responsible for processing user requests against the defined set of  route handlers, the resulting packets list is placed into the queue to be processed by the other worker
+   * Number of workers of this type at this point is hard coded and is set to **3** parallel workers, but can be configured in future
+   * Uses `inPacketsQueue` as a source of work
 
 *  **PacketsWriterRunnable**
-	* Responsible for sending back to the client all packets that were generated in response to the received request
-	* Number of workers of this type at this point is hard coded and is set to **1** parallel workers, but can be configured in future
-	* Uses `outPacketsQueue` as a source of work
+   * Responsible for sending back to the client all packets that were generated in response to the received request
+   * Number of workers of this type at this point is hard coded and is set to **1** parallel workers, but can be configured in future
+   * Uses `outPacketsQueue` as a source of work
 
 ## Protocol Specifics
 
@@ -117,8 +120,9 @@ In the current implementation there is only one usecase of packets of this type 
 
 ## Server application logic handlers
 
-Each command supported by the TD Server endpoint is backed by its own custom command handler. Command handlers are resolved on the runtime from the configuration file - `application.properties`, which
-is the default resolution strategy. Based on the requirements, the default resolution strategy can be overridden and replaced, for instance, by the classpath scanning approach.
+Each command supported by the TD Server endpoint is backed by its own custom command handler.
+
+Command handlers are resolved on the runtime from the configuration file - `application.properties`, which  is the default resolution strategy. Based on the requirements, the default resolution strategy can be overridden and replaced, for instance, by the classpath scanning approach.
 
 At this point, the resolution strategy is hardcoded and cannot be overridden in a way other then the changes into the source code. It can be replaced through introduction of a service provider instead of a static instantiation logic.
 
@@ -137,10 +141,8 @@ It is possible for a route to return zero or more response actions and each resp
 
 ## Client application logic handlers
 
-Application client is designed on a strict request-response basis, meaning that each request requires at least a single response
-to be produced by a server application.
+Application client is designed on a strict request-response basis, meaning that each request requires at least a single response  to be produced by a server application.
 
 Due to the assignment requirements, some requests may require more than a single response to be provided in response to a given client request.
 
-The current request execution semantics do not include guaranteed request execution, so in a case of a possible connectivity problem
-request will be failed and permission to re-attempt will be requested from the end-user.
+The current request execution semantics do not include guaranteed request execution, so in a case of a possible connectivity problem  request will be failed and permission to re-attempt will be requested from the end-user.
