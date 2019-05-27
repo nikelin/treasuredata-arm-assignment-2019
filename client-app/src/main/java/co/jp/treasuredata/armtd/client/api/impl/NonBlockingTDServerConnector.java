@@ -7,6 +7,7 @@ import co.jp.treasuredata.armtd.api.protocol.io.impl.StandardPacketsBuilder;
 import co.jp.treasuredata.armtd.client.ClientConfig;
 import co.jp.treasuredata.armtd.client.api.TDServerConnector;
 
+import co.jp.treasuredata.armtd.client.commands.BroadcastPacketHandler;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
@@ -27,6 +28,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
 
     private final ExecutorService executorService;
     private final PacketHandler packetHandler;
+    private final BroadcastPacketHandler broadcastPacketHandler;
 
     private final BlockingDeque<ClientRequest> requestsDeque = new LinkedBlockingDeque<>();
 
@@ -44,13 +46,16 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
     private final ClientConfig config;
     private final PrintStream consoleOut;
 
-    public NonBlockingTDServerConnector(PrintStream consoleOut, PacketHandler handler, ClientConfig config) {
-        this(consoleOut, Executors.newCachedThreadPool(), handler, config);
+    public NonBlockingTDServerConnector(PrintStream consoleOut, PacketHandler handler, BroadcastPacketHandler broadcastPacketHandler,
+                                        ClientConfig config) {
+        this(consoleOut, Executors.newCachedThreadPool(), handler, broadcastPacketHandler, config);
     }
 
     public NonBlockingTDServerConnector(PrintStream consoleOut, ExecutorService service, PacketHandler handler,
+                                        BroadcastPacketHandler broadcastPacketHandler,
                                         ClientConfig config) {
         this.packetHandler = handler;
+        this.broadcastPacketHandler = broadcastPacketHandler;
         this.executorService = service;
         this.config = config;
         this.consoleOut = consoleOut;
@@ -205,6 +210,7 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
         inputBuffer.put(buffer.array(), 0, bytesRead);
         inputBuffer.flip();
         buffer.clear();
+
         readBuffers.add(Pair.of(channel, inputBuffer));
 
         if (config.getVerbose()) {
@@ -250,6 +256,16 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
                 commandBuffer.clear();
             }
         });
+    }
+
+    private void handleBroadcastPacket(Packet packet) {
+        if (this.broadcastPacketHandler == null) {
+            if (config.getVerbose()) {
+                consoleOut.println("[warning] No broadcast handler defined - ignoring received broadcast packet");
+            }
+        } else {
+            this.broadcastPacketHandler.handle(consoleOut, packet);
+        }
     }
 
     private CompletableFuture<Response> sendCmd(String commandText, int expectedResponses) {
@@ -302,6 +318,11 @@ public class NonBlockingTDServerConnector implements TDServerConnector {
                 }
 
                 if (packet == null) {
+                    continue;
+                }
+
+                if (Packet.isBroadcast(packet.getRight())) {
+                    handleBroadcastPacket(packet.getRight());
                     continue;
                 }
 

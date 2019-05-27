@@ -1,10 +1,13 @@
 package co.jp.treasuredata.armtd.client;
 
+import co.jp.treasuredata.armtd.api.protocol.handler.PacketHandler;
 import co.jp.treasuredata.armtd.api.protocol.handler.spi.PacketHandlerProvider;
 import co.jp.treasuredata.armtd.client.api.TDServerConnector;
 import co.jp.treasuredata.armtd.client.api.impl.NonBlockingTDServerConnector;
+import co.jp.treasuredata.armtd.client.commands.BroadcastPacketHandler;
 import co.jp.treasuredata.armtd.client.commands.CommandHandler;
 import co.jp.treasuredata.armtd.client.commands.CommandException;
+import co.jp.treasuredata.armtd.client.commands.handler.spi.BroadcastPacketHandlerProvider;
 import co.jp.treasuredata.armtd.client.commands.loader.spi.CommandsLoaderProvider;
 import org.kohsuke.args4j.*;
 
@@ -36,16 +39,24 @@ public final class App {
             return;
         }
 
-        Iterator<PacketHandlerProvider> packetHandlerIterator = ServiceLoader.load(PacketHandlerProvider.class).iterator();
-        if (!packetHandlerIterator.hasNext()) {
+
+        Optional<PacketHandlerProvider> packetHandlerOpt = resolveServiceProvider(PacketHandlerProvider.class);
+        if (!packetHandlerOpt.isPresent()) {
             System.err.println("[ERROR] No packet loaders provided!");
             exit(-1);
             return;
         }
 
+        final PacketHandler packetHandler = packetHandlerOpt.get().provide();
+
+        final BroadcastPacketHandler broadcastPacketHandler =
+                resolveServiceProvider(BroadcastPacketHandlerProvider.class)
+                    .map(BroadcastPacketHandlerProvider::provide)
+                    .orElseGet(() -> null);
+
         final TDServerConnector connector;
         try {
-            connector = new NonBlockingTDServerConnector(System.out, packetHandlerIterator.next().provide(), config);
+            connector = new NonBlockingTDServerConnector(System.out, packetHandler, broadcastPacketHandler, config);
         } catch (Throwable e) {
             System.err.println("[ERROR] Failed to instantiate an instance of TD File Server connector.");
             e.printStackTrace();
@@ -69,6 +80,14 @@ public final class App {
         }
 
         exit(0);
+    }
+
+    private static <T> Optional<T> resolveServiceProvider(Class<T> serviceClass) {
+        ServiceLoader<T> loader = ServiceLoader.load(serviceClass);
+        Iterator<T> providers = loader.iterator();
+        if (!providers.hasNext()) return Optional.empty();
+
+        return Optional.of(providers.next());
     }
 
     private static void handleInput(ExecutionContext context, List<CommandHandler> commandHandlers) throws IOException {

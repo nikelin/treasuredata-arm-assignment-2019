@@ -37,8 +37,10 @@ public class NonBlockingServer implements Server {
 
     private final ExecutorService service = Executors.newCachedThreadPool();
 
+    private final Set<SocketChannel> activeConnections = Collections.synchronizedSet(new HashSet<>());
     private final BlockingQueue<Pair<SocketChannel, ByteBuffer>> readBuffers = new LinkedBlockingQueue<>();
-    private final BlockingQueue<Pair<SocketChannel, Packet>> packetsQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<Pair<SocketChannel, Packet>> inPacketsQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<Pair<SocketChannel, List<Packet>>> outPacketsQueue = new LinkedBlockingQueue<>();
 
     private final Duration writeTimeout = Duration.of(2, ChronoUnit.SECONDS);
 
@@ -63,11 +65,15 @@ public class NonBlockingServer implements Server {
 
         for (int builderIdx = 0; builderIdx < 3; builderIdx++) {
             service.execute(new FramesBuilderRunnable(builderIdx, new StandardPacketsBuilder(2048),
-                    readBuffers, packetsQueue, isTerminated));
+                    readBuffers, inPacketsQueue, isTerminated));
         }
 
         for (int processorIdx = 0; processorIdx < 3; processorIdx++) {
             service.execute(new PacketsProcessorRunnable(processorIdx));
+        }
+
+        for (int processorIdx = 0; processorIdx < 1; processorIdx++) {
+            service.execute(new PacketsWriterRunnable());
         }
 
         while (!this.isTerminated.get()) {
@@ -93,14 +99,12 @@ public class NonBlockingServer implements Server {
                     SocketChannel clientSocket = serverChannel.accept();
                     clientSocket.configureBlocking(false);
                     clientSocket.register(selector, SelectionKey.OP_READ);
+                    activeConnections.add(clientSocket);
                 } else if (selectedKey.isReadable()) {
                     try {
                         readChannel(selectedKey, (v) -> {
                             selectedKey.cancel();
-                            try {
-                                selectedKey.channel().close();
-                            } catch (IOException ignored) {
-                            }
+                            closeChannel((SocketChannel) selectedKey.channel());
                             return null;
                         });
                     } catch (IOException e) {
@@ -112,6 +116,16 @@ public class NonBlockingServer implements Server {
 
         serverChannel.close();
         selector.close();
+    }
+
+    protected void broadcast(Packet packet) {
+        for (SocketChannel connection: activeConnections) {
+            this.outPacketsQueue.add(Pair.of(connection, Collections.singletonList(packet)));
+        }
+    }
+
+    private boolean isActiveConnection(SocketChannel channel) {
+        return this.activeConnections.contains(channel);
     }
 
     private void readChannel(SelectionKey key, Function<Void, Void> onClose) throws IOException {
@@ -134,12 +148,36 @@ public class NonBlockingServer implements Server {
         buffer.clear();
     }
 
+    private void closeChannel(SocketChannel channel) {
+        this.activeConnections.remove(channel);
+        this.inPacketsQueue.removeIf((pair) -> pair.getLeft() == channel);
+        this.outPacketsQueue.removeIf((pair) -> pair.getLeft() == channel);
+        this.readBuffers.removeIf((pair) -> pair.getLeft() == channel);
+    }
+
     @Override
     public void stop() {
-        this.isTerminated.set(true);
-        synchronized (this.terminated) {
-            this.terminated.notifyAll();
-        }
+        this.broadcast(Packet.broadcast("[server status] Server has stopped.".getBytes()));
+
+        Future<?> delayedTermination = this.service.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(2000);
+                } catch (Throwable ignored) {
+                    return;
+                }
+
+                NonBlockingServer.this.isTerminated.set(true);
+                synchronized (NonBlockingServer.this.terminated) {
+                    NonBlockingServer.this.terminated.notifyAll();
+                }
+            }
+        });
+
+        try {
+            delayedTermination.get(1, TimeUnit.SECONDS);
+        } catch (Throwable ignored) {}
     }
 
     @Override
@@ -153,6 +191,46 @@ public class NonBlockingServer implements Server {
     public void awaitTermination() throws InterruptedException {
         synchronized (this.terminated) {
             this.terminated.wait();
+        }
+    }
+
+    private class PacketsWriterRunnable implements Runnable {
+        @Override
+        public void run() {
+            while (!NonBlockingServer.this.isTerminated.get()) {
+                final Pair<SocketChannel, List<Packet>> outPair;
+                try {
+                    outPair = outPacketsQueue.poll(1, TimeUnit.SECONDS);
+                } catch (Throwable ignore) {
+                    continue;
+                }
+
+                if (outPair == null) continue;
+
+                SocketChannel channel = outPair.getLeft();
+
+                if (!isActiveConnection(channel)) continue;
+
+                logger.info("[output] Response packets produced - " + outPair.getRight().size());
+                for (int i = 0; i < outPair.getRight().size(); i++) {
+                    Packet packet = outPair.getRight().get(i);
+                    ByteBuffer buffer = ByteBuffer.allocate(outPair.getRight().get(i).byteSize());
+                    packetHandler.serialise(buffer, packet);
+                    buffer.flip();
+
+                    try {
+                        logger.debug("[output] Sending response (" + packet.byteSize() + " bytes) " + " - " + (i + 1) + " / " + outPair.getRight().size());
+                        while (buffer.hasRemaining()) {
+                            channel.write(buffer);
+                        }
+                        logger.debug("[output] Response sent - " + (i + 1) + " / " + outPair.getRight().size());
+                    } catch (IOException e) {
+                        logger.error("[ERROR] I/O failed", e);
+                    }
+
+                    buffer.clear();
+                }
+            }
         }
     }
 
@@ -170,12 +248,12 @@ public class NonBlockingServer implements Server {
             while (!NonBlockingServer.this.isTerminated.get()) {
                 final Pair<SocketChannel, Packet> inputPair;
                 try {
-                    inputPair = NonBlockingServer.this.packetsQueue.poll(1, TimeUnit.SECONDS);
+                    inputPair = NonBlockingServer.this.inPacketsQueue.poll(1, TimeUnit.SECONDS);
                 } catch (Throwable e) {
                     continue;
                 }
 
-                if (inputPair == null) continue;
+                if (inputPair == null || !isActiveConnection(inputPair.getLeft())) continue;
 
                 logger.info("[input] Request received - " + inputPair);
 
@@ -203,36 +281,13 @@ public class NonBlockingServer implements Server {
                     }
                 }
 
-                final List<Packet> packets;
                 try {
-                    packets = future.get(writeTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                    List<Packet> outPackets = future.get(writeTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                    if (outPackets.isEmpty()) continue;
+
+                    outPacketsQueue.add(Pair.of(inputPair.getLeft(), outPackets));
                 } catch (Throwable e) {
                     logger.error("[error] Request processing failed due to timeout", e);
-                    continue;
-                }
-
-                if (packets == null) continue;
-
-                SocketChannel channel = inputPair.getLeft();
-
-                logger.info("[output] Response packets produced - " + packets.size());
-                for (int i = 0; i < packets.size(); i++) {
-                    Packet packet = packets.get(i);
-                    ByteBuffer buffer = ByteBuffer.allocate(packets.get(i).byteSize());
-                    packetHandler.serialise(buffer, packet);
-                    buffer.flip();
-
-                    try {
-                        logger.debug("[output] Sending response (" + packet.byteSize() + " bytes) " + " - " + (i + 1) + " / " + packets.size());
-                        while (buffer.hasRemaining()) {
-                            channel.write(buffer);
-                        }
-                        logger.debug("[output] Response sent - " + (i + 1) + " / " + packets.size());
-                    } catch (IOException e) {
-                        logger.error("[ERROR] I/O failed", e);
-                    }
-
-                    buffer.clear();
                 }
             }
         }

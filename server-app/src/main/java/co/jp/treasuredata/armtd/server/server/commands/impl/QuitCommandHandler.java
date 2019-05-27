@@ -5,6 +5,7 @@ import co.jp.treasuredata.armtd.api.protocol.Request;
 import co.jp.treasuredata.armtd.server.io.ResponseAction;
 import co.jp.treasuredata.armtd.server.io.Server;
 import co.jp.treasuredata.armtd.server.server.commands.actions.ErrorResponseAction;
+import co.jp.treasuredata.armtd.server.server.commands.actions.TextResponseAction;
 import co.jp.treasuredata.armtd.server.server.commands.discovery.DiscoverableHandler;
 import co.jp.treasuredata.armtd.server.server.commands.RouteHandler;
 
@@ -33,7 +34,7 @@ public class QuitCommandHandler implements RouteHandler  {
                     }
                 })
                 .thenCompose((v) ->
-                        ErrorResponseAction.internalException("server failed to stop").execute(request)
+                    new TextResponseAction("Server termination initiated").execute(request)
                 );
         }
     }
