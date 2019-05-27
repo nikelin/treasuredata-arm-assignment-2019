@@ -4,31 +4,35 @@ import org.kohsuke.args4j.Option;
 
 public class ClientConfig {
 
-    @Option(name = "-h", aliases = "--host", usage = "A hostname of a TD file server")
-    private String serverHost;
+  @Option(name = "-h", aliases = "--host", usage = "A hostname of a TD file server")
+  private String serverHost;
 
-    @Option(name = "-p", aliases = "--port", required = true, usage = "A port of a TD file server")
-    private Integer serverPort;
+  @Option(name = "-p", aliases = "--port", required = true, usage = "A port of a TD file server")
+  private Integer serverPort;
 
-    @Option(name = "-ma", aliases = "--max-retry-attempts", required = false, usage = "A max number of retry attempts")
-    private Integer maxReconnectAttempts;
+  @Option(
+      name = "-ma",
+      aliases = "--max-retry-attempts",
+      required = false,
+      usage = "A max number of retry attempts")
+  private Integer maxReconnectAttempts;
 
-    @Option(name = "-v", aliases = "--verbouse", required = false, usage = "Enable debug messages")
-    private Boolean isVerbose;
+  @Option(name = "-v", aliases = "--verbouse", required = false, usage = "Enable debug messages")
+  private Boolean isVerbose;
 
-    public Boolean getVerbose() {
-        return isVerbose == null ? false : isVerbose;
-    }
+  public Boolean getVerbose() {
+    return isVerbose == null ? false : isVerbose;
+  }
 
-    public Integer getMaxReconnectAttempts() {
-        return maxReconnectAttempts;
-    }
+  public Integer getMaxReconnectAttempts() {
+    return maxReconnectAttempts;
+  }
 
-    public String getServerHost() {
-        return serverHost;
-    }
+  public String getServerHost() {
+    return serverHost;
+  }
 
-    public Integer getServerPort() {
-        return serverPort;
-    }
+  public Integer getServerPort() {
+    return serverPort;
+  }
 }

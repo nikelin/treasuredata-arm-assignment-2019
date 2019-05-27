@@ -5,8 +5,8 @@ import co.jp.treasuredata.armtd.client.commands.StandardBroadcastPacketHandler;
 
 public class StandardBroadcastPacketHandlerProvider implements BroadcastPacketHandlerProvider {
 
-    @Override
-    public BroadcastPacketHandler provide() {
-        return new StandardBroadcastPacketHandler();
-    }
+  @Override
+  public BroadcastPacketHandler provide() {
+    return new StandardBroadcastPacketHandler();
+  }
 }

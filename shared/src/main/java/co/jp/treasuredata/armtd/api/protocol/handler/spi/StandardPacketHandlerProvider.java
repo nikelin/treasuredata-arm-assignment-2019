@@ -5,9 +5,8 @@ import co.jp.treasuredata.armtd.api.protocol.handler.TDPacketHandler;
 
 public class StandardPacketHandlerProvider implements PacketHandlerProvider {
 
-    @Override
-    public PacketHandler provide() {
-        return new TDPacketHandler();
-    }
-
+  @Override
+  public PacketHandler provide() {
+    return new TDPacketHandler();
+  }
 }

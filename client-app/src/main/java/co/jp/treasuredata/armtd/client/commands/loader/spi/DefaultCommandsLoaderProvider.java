@@ -5,8 +5,8 @@ import co.jp.treasuredata.armtd.client.commands.loader.PropertiesBasedCommandsLo
 
 public class DefaultCommandsLoaderProvider implements CommandsLoaderProvider {
 
-    @Override
-    public CommandsLoader provide() {
-        return new PropertiesBasedCommandsLoader();
-    }
+  @Override
+  public CommandsLoader provide() {
+    return new PropertiesBasedCommandsLoader();
+  }
 }

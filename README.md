@@ -1,3 +1,19 @@
+## Overview
+
+Project consists of a three submodules - library, client and server application.
+
+It uses some third-party dependencies in order to implement some basic features not related to the core application functionality
+like CLI arguments parsing, logging handling and functional data structures implementations:
+
+* Apache Commons Lang v3.9
+* args4j v2.33
+* Logback v1.1.7
+* Slf4j API v1.7.21
+
+Plugins used in the build configuration:
+
+* JaCoCo - as a test coverage reports provider
+* Spotless (Google Java Format) - as an automatic Java code formatting provider
 
 
 ## Build

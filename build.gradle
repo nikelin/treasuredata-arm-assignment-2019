@@ -1,3 +1,9 @@
+plugins {
+    id "com.diffplug.gradle.spotless" version "3.23.0" apply false
+    id 'java' apply true
+    id 'jacoco' apply true
+}
+
 allprojects {
     repositories {
         jcenter()
@@ -8,13 +14,12 @@ subprojects {
     version = '1.0'
 
     apply plugin: 'java'
+    apply plugin: 'com.diffplug.gradle.spotless'
 
     group = 'org.gradle.sample'
     version = '1.0'
 
     dependencies {
-        compile group: 'com.google.guava', name: 'guava', version: '27.0.1-jre'
-
         compile group: 'args4j', name: 'args4j', version: '2.33'
         
         compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
@@ -30,5 +35,12 @@ subprojects {
         compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.9'
 
         testImplementation 'junit:junit:4.12'
+    }
+
+    spotless {
+        java {
+            removeUnusedImports()
+            googleJavaFormat()
+        }
     }
 }

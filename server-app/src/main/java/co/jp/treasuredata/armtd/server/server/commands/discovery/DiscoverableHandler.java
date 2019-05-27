@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface DiscoverableHandler {
-    String[] mappings();
+  String[] mappings();
 
-    String description() default "";
+  String description() default "";
 }

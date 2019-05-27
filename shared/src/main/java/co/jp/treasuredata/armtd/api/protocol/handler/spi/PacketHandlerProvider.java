@@ -4,6 +4,5 @@ import co.jp.treasuredata.armtd.api.protocol.handler.PacketHandler;
 
 public interface PacketHandlerProvider {
 
-    PacketHandler provide();
-
+  PacketHandler provide();
 }

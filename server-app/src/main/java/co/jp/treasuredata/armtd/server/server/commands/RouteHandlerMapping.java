@@ -4,19 +4,19 @@ import java.util.List;
 
 public final class RouteHandlerMapping {
 
-    private final List<String> mappings;
-    private final RouteHandler handler;
+  private final List<String> mappings;
+  private final RouteHandler handler;
 
-    public RouteHandlerMapping(List<String> mappings, RouteHandler handler) {
-        this.mappings = mappings;
-        this.handler = handler;
-    }
+  public RouteHandlerMapping(List<String> mappings, RouteHandler handler) {
+    this.mappings = mappings;
+    this.handler = handler;
+  }
 
-    public List<String> getMappings() {
-        return mappings;
-    }
+  public List<String> getMappings() {
+    return mappings;
+  }
 
-    public RouteHandler getHandler() {
-        return handler;
-    }
+  public RouteHandler getHandler() {
+    return handler;
+  }
 }

@@ -7,18 +7,17 @@ import java.util.concurrent.ExecutionException;
 
 public interface TDServerConnector {
 
-    CompletableFuture<List<String>> listFiles();
+  CompletableFuture<List<String>> listFiles();
 
-    CompletableFuture<String> fetchFile(String name);
+  CompletableFuture<String> fetchFile(String name);
 
-    CompletableFuture<Void> quit();
+  CompletableFuture<Void> quit();
 
-    boolean isConnected();
+  boolean isConnected();
 
-    void connect() throws IOException, InterruptedException, ExecutionException;
+  void connect() throws IOException, InterruptedException, ExecutionException;
 
-    void disconnect() throws IOException, InterruptedException;
+  void disconnect() throws IOException, InterruptedException;
 
-    void close() throws IOException, InterruptedException;
-
+  void close() throws IOException, InterruptedException;
 }
