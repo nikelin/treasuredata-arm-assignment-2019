@@ -12,8 +12,8 @@ like CLI arguments parsing, logging handling and functional data structures impl
 
 Plugins used in the build configuration:
 
-* JaCoCo - as a test coverage reports provider
-* Spotless (Google Java Format) - as an automatic Java code formatting provider
+* **JaCoCo** - as a test coverage reports provider
+* **Spotless** (Google Java Format) - as an automatic Java code formatting provider
 
 
 ## Build
