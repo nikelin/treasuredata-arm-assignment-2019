@@ -74,15 +74,8 @@ public final class App {
     private static void handleInput(ExecutionContext context, List<CommandHandler> commandHandlers) throws IOException {
         boolean isStopped = false;
         while(!isStopped) {
-            if (!context.getConnector().isConnected()) {
-                try {
-                    context.getConnector().connect();
-                } catch (Throwable e) {
-                    context.out().println("Unable to establish connection to the TD Server: " + e.getMessage());
-                }
-            }
-
             context.out().println("== Pick one of the available command handlers:");
+
             for (CommandHandler handler : commandHandlers) {
                 context.out().println("* type '" + handler.getKey() + "' to execute [" + handler.toString() + "]");
             }
@@ -112,16 +105,52 @@ public final class App {
 
             Optional<CommandHandler> command = commandHandlers.stream().filter((v) -> v.getKey().contains(line)).findFirst();
             if (!command.isPresent()) {
-                context.out().println("[ERROR] Unrecognised command");
+                context.out().println(">>> Unrecognised command");
                 continue;
             }
 
-            try {
-                context.out().println("Command execution has started");
-                command.get().execute(context);
-            } catch (CommandException e) {
-                context.out().println("[ERROR] CommandHandler execution failed: " + e.getMessage());
-            }
+            boolean retryRequested = false;
+            do {
+                boolean failed = false;
+
+                try {
+                    if (!context.getConnector().isConnected()) {
+                        try {
+                            context.getConnector().connect();
+                        } catch (Throwable e) {
+                            if (context.getClientConfig().getVerbose()) {
+                                context.out().println("[error] Unable to establish connection to the TD Server: " + e.getMessage());
+                            }
+                        }
+                    }
+
+                    context.out().println(">>> Command execution started");
+                    command.get().execute(context);
+                } catch (CommandException e) {
+                    context.out().println("[ERROR] CommandHandler execution failed: " + e.getMessage());
+                    failed = true;
+                }
+
+                if (failed) {
+                    context.out().println(">>> Command execution has failed, do you want to retry? [y/n]");
+
+                    String input = context.in().readLine();
+                    if (input == null) {
+                        break;
+                    }
+
+                    switch(input) {
+                        case "y":
+                            retryRequested = true;
+                        break;
+                        case "n":
+                            retryRequested = false;
+                        break;
+                        default:
+                            context.out().println("[error] Unrecognised input, returning to the commands selection screen.");
+                    }
+                }
+            } while (retryRequested);
         }
     }
 

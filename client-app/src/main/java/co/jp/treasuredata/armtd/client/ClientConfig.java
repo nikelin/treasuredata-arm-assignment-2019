@@ -13,6 +13,13 @@ public class ClientConfig {
     @Option(name = "-ma", aliases = "--max-retry-attempts", required = false, usage = "A max number of retry attempts")
     private Integer maxReconnectAttempts;
 
+    @Option(name = "-v", aliases = "--verbouse", required = false, usage = "Enable debug messages")
+    private Boolean isVerbose;
+
+    public Boolean getVerbose() {
+        return isVerbose == null ? false : isVerbose;
+    }
+
     public Integer getMaxReconnectAttempts() {
         return maxReconnectAttempts;
     }

@@ -25,7 +25,8 @@ public class FramesBuilderRunnable implements Runnable {
 
     private final AtomicBoolean terminateSignal;
 
-    public FramesBuilderRunnable(int id, PacketsBuilder packetsBuilder, BlockingQueue<Pair<SocketChannel, ByteBuffer>> readBuffers,
+    public FramesBuilderRunnable(int id, PacketsBuilder packetsBuilder,
+                                 BlockingQueue<Pair<SocketChannel, ByteBuffer>> readBuffers,
                                  BlockingQueue<Pair<SocketChannel, Packet>> packetsQueue,
                                  AtomicBoolean terminateSignal) {
         this.id = id;
@@ -74,14 +75,13 @@ public class FramesBuilderRunnable implements Runnable {
                     }
 
                     if (consumed.getLeft() != null) {
-                        logger.info("Packet synthesised " + consumed.getLeft());
+                        logger.info("Packet synthesised " + consumed.getRight() + " bytes");
                         packetsQueue.add(Pair.of(socketChannel, consumed.getLeft()));
                         builder.dispose();
                     }
                 }
             } catch (Throwable e) {
-                e.printStackTrace();
-                logger.info("Frames builder error");
+                logger.error("Frames builder error", e);
             }
         }
 
