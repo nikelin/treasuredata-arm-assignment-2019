@@ -11,6 +11,10 @@ public class TDPacketHandler implements PacketHandler {
 
     @Override
     public void serialise(ByteBuffer buffer, Packet packet) {
+        if (buffer.remaining() < packet.byteSize()) {
+            throw new IllegalArgumentException("buffer.remaining < packet.byteSize");
+        }
+
         buffer.putInt(packet.getLength());
         buffer.putInt(packet.getToken());
         buffer.put(packet.getData());
